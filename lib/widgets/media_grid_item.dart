@@ -25,85 +25,89 @@ class MediaGridItem extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       onLongPress: onLongPress,
-      child: Stack(
-        fit: StackFit.expand,
+      child: Column(
         children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(8),
-            child: _buildThumbnail(context),
+          Expanded(
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: _buildThumbnail(context),
+                ),
+                
+                // Selection overlay
+                if (isSelectionMode)
+                  Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(8),
+                      color: isSelected 
+                          ? Colors.blue.withValues(alpha: 0.4)
+                          : Colors.black.withValues(alpha: 0.2),
+                      border: isSelected
+                          ? Border.all(color: Colors.blue, width: 3)
+                          : null,
+                    ),
+                  ),
+                
+                // Video indicator
+                if (media.mediaType == MediaType.video)
+                  Positioned(
+                    bottom: 4,
+                    right: 4,
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                        color: Colors.black54,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: const Icon(
+                        Icons.play_arrow,
+                        color: Colors.white,
+                        size: 20,
+                      ),
+                    ),
+                  ),
+                
+                // Selection checkbox
+                if (isSelectionMode)
+                  Positioned(
+                    top: 4,
+                    left: 4,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: isSelected ? Colors.blue : Colors.grey,
+                          width: 2,
+                        ),
+                      ),
+                      child: Icon(
+                        isSelected ? Icons.check_circle : Icons.circle_outlined,
+                        color: isSelected ? Colors.blue : Colors.grey,
+                        size: 24,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
           ),
           
-          // Selection overlay
-          if (isSelectionMode)
-            Container(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(8),
-                color: isSelected 
-                    ? Colors.blue.withValues(alpha: 0.4)
-                    : Colors.black.withValues(alpha: 0.2),
-                border: isSelected
-                    ? Border.all(color: Colors.blue, width: 3)
-                    : null,
-              ),
-            ),
-          
-          // Video indicator
-          if (media.mediaType == MediaType.video)
-            Positioned(
-              bottom: 4,
-              right: 4,
-              child: Container(
-                padding: const EdgeInsets.all(4),
-                decoration: BoxDecoration(
-                  color: Colors.black54,
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: const Icon(
-                  Icons.play_arrow,
-                  color: Colors.white,
-                  size: 20,
-                ),
-              ),
-            ),
-          
-          // Memo indicator
+          // Memo text at bottom
           if (media.memo != null && media.memo!.isNotEmpty)
-            Positioned(
-              top: 4,
-              right: 4,
-              child: Container(
-                padding: const EdgeInsets.all(4),
-                decoration: BoxDecoration(
-                  color: Colors.blue,
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: const Icon(
-                  Icons.note,
-                  color: Colors.white,
-                  size: 16,
-                ),
-              ),
-            ),
-          
-          // Selection checkbox
-          if (isSelectionMode)
-            Positioned(
-              top: 4,
-              left: 4,
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: isSelected ? Colors.blue : Colors.grey,
-                    width: 2,
-                  ),
-                ),
-                child: Icon(
-                  isSelected ? Icons.check_circle : Icons.circle_outlined,
-                  color: isSelected ? Colors.blue : Colors.grey,
-                  size: 24,
-                ),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+              child: Text(
+                media.memo!,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      fontSize: 10,
+                      height: 1.2,
+                    ),
+                textAlign: TextAlign.center,
               ),
             ),
         ],
