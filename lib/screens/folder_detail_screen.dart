@@ -113,6 +113,55 @@ class _FolderDetailScreenState extends State<FolderDetailScreen> {
               tooltip: '선택 항목 삭제',
             ),
           ] else if (_mediaItems.isNotEmpty) ...[
+            PopupMenuButton<String>(
+              icon: const Icon(Icons.download),
+              tooltip: '내보내기',
+              onSelected: (value) {
+                switch (value) {
+                  case 'excel':
+                    _exportToExcel();
+                    break;
+                  case 'html':
+                    _exportToHTML();
+                    break;
+                  case 'zip':
+                    _exportToZIP();
+                    break;
+                }
+              },
+              itemBuilder: (context) => [
+                const PopupMenuItem(
+                  value: 'excel',
+                  child: Row(
+                    children: [
+                      Icon(Icons.table_chart),
+                      SizedBox(width: 12),
+                      Text('Excel로 내보내기'),
+                    ],
+                  ),
+                ),
+                const PopupMenuItem(
+                  value: 'html',
+                  child: Row(
+                    children: [
+                      Icon(Icons.code),
+                      SizedBox(width: 12),
+                      Text('HTML로 내보내기'),
+                    ],
+                  ),
+                ),
+                const PopupMenuItem(
+                  value: 'zip',
+                  child: Row(
+                    children: [
+                      Icon(Icons.folder_zip),
+                      SizedBox(width: 12),
+                      Text('ZIP으로 내보내기'),
+                    ],
+                  ),
+                ),
+              ],
+            ),
             IconButton(
               icon: const Icon(Icons.checklist),
               onPressed: _toggleSelectionMode,
@@ -233,6 +282,17 @@ class _FolderDetailScreenState extends State<FolderDetailScreen> {
   }
 
   Future<void> _takePhoto() async {
+    // 권한 체크
+    final hasPermission = await PermissionService.requestCameraPermission();
+    if (!hasPermission) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('카메라 권한이 필요합니다')),
+        );
+      }
+      return;
+    }
+
     try {
       final XFile? photo = await _picker.pickImage(
         source: ImageSource.camera,
@@ -252,6 +312,17 @@ class _FolderDetailScreenState extends State<FolderDetailScreen> {
   }
 
   Future<void> _takeVideo() async {
+    // 권한 체크
+    final hasPermission = await PermissionService.requestCameraPermission();
+    if (!hasPermission) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('카메라 권한이 필요합니다')),
+        );
+      }
+      return;
+    }
+
     try {
       final XFile? video = await _picker.pickVideo(
         source: ImageSource.camera,
@@ -271,6 +342,17 @@ class _FolderDetailScreenState extends State<FolderDetailScreen> {
   }
 
   Future<void> _pickFromGallery() async {
+    // 권한 체크
+    final hasPermission = await PermissionService.requestPhotoPermission();
+    if (!hasPermission) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('사진 접근 권한이 필요합니다')),
+        );
+      }
+      return;
+    }
+
     try {
       final List<XFile> files = await _picker.pickMultipleMedia(
         imageQuality: 85,
@@ -375,6 +457,63 @@ class _FolderDetailScreenState extends State<FolderDetailScreen> {
         subject: '${widget.folder.name} 폴더의 미디어',
         text: '${files.length}개의 미디어를 공유합니다',
       );
+    }
+  }
+
+  Future<void> _exportToExcel() async {
+    try {
+      final exportService = ExportService();
+      final filePath = await exportService.exportToExcel(widget.folder, _mediaItems);
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Excel 파일로 내보내기 완료\n$filePath')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Excel 내보내기 실패: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _exportToHTML() async {
+    try {
+      final exportService = ExportService();
+      final filePath = await exportService.exportToHTML(widget.folder, _mediaItems);
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('HTML 파일로 내보내기 완료\n$filePath')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('HTML 내보내기 실패: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _exportToZIP() async {
+    try {
+      final exportService = ExportService();
+      final filePath = await exportService.exportToZIP(widget.folder, _mediaItems);
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('ZIP 파일로 내보내기 완료\n$filePath')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('ZIP 내보내기 실패: $e')),
+        );
+      }
     }
   }
 
