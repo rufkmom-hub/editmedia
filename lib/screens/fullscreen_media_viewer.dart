@@ -13,12 +13,14 @@ class FullscreenMediaViewer extends StatefulWidget {
   final List<MediaItem> mediaItems;
   final int initialIndex;
   final Function(String) onDelete;
+  final VoidCallback? onMemoUpdate;
 
   const FullscreenMediaViewer({
     super.key,
     required this.mediaItems,
     required this.initialIndex,
     required this.onDelete,
+    this.onMemoUpdate,
   });
 
   @override
@@ -265,6 +267,7 @@ class _FullscreenMediaViewerState extends State<FullscreenMediaViewer> {
       await provider.updateMediaMemo(currentMedia.id, result);
       currentMedia.memo = result;
       setState(() {});
+      widget.onMemoUpdate?.call();
       
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('메모가 저장되었습니다')),

@@ -42,39 +42,45 @@ class _MyAppState extends State<MyApp> {
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (_) => FolderProvider()..loadFolders(),
-      child: MaterialApp(
-        title: '폴더앨범',
-        debugShowCheckedModeBanner: false,
-        theme: ThemeData(
-          colorScheme: ColorScheme.fromSeed(
-            seedColor: Colors.blue,
-            brightness: Brightness.light,
-          ),
-          useMaterial3: true,
-          cardTheme: CardThemeData(
-            elevation: 2,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
+    return MediaQuery(
+      data: MediaQueryData(
+        textScaler: TextScaler.linear(_textScale),
+      ),
+      child: ChangeNotifierProvider(
+        create: (_) => FolderProvider()..loadFolders(),
+        child: MaterialApp(
+          title: '폴더앨범',
+          debugShowCheckedModeBanner: false,
+          theme: ThemeData(
+            colorScheme: ColorScheme.fromSeed(
+              seedColor: Colors.blue,
+              brightness: Brightness.light,
+            ),
+            useMaterial3: true,
+            cardTheme: CardThemeData(
+              elevation: 2,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+            ),
+            floatingActionButtonTheme: FloatingActionButtonThemeData(
+              elevation: 4,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
             ),
           ),
-          floatingActionButtonTheme: FloatingActionButtonThemeData(
-            elevation: 4,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-          ),
+          builder: (context, child) {
+            final data = MediaQuery.of(context);
+            return MediaQuery(
+              data: data.copyWith(
+                textScaler: TextScaler.linear(_textScale),
+              ),
+              child: child!,
+            );
+          },
+          home: HomeScreen(onTextScaleChanged: updateTextScale),
         ),
-        builder: (context, child) {
-          return MediaQuery(
-            data: MediaQuery.of(context).copyWith(
-              textScaler: TextScaler.linear(_textScale),
-            ),
-            child: child!,
-          );
-        },
-        home: HomeScreen(onTextScaleChanged: updateTextScale),
       ),
     );
   }

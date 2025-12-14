@@ -265,6 +265,9 @@ class _FolderDetailScreenState extends State<FolderDetailScreen> {
                     onDelete: (id) {
                       _loadMedia();
                     },
+                    onMemoUpdate: () {
+                      setState(() {});
+                    },
                   ),
                 ),
               );

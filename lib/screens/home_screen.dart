@@ -25,6 +25,7 @@ class _HomeScreenState extends State<HomeScreen> {
   String _storageInfo = '계산 중...';
   List<MediaItem> _allMedia = [];
   double _textScale = 1.0;
+  String _folderViewMode = 'medium'; // 'small', 'medium', 'detail'
 
   @override
   void initState() {
@@ -32,12 +33,20 @@ class _HomeScreenState extends State<HomeScreen> {
     _updateStorageInfo();
     _loadAllMedia();
     _loadTextScale();
+    _loadFolderViewMode();
   }
 
   Future<void> _loadTextScale() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
       _textScale = prefs.getDouble('text_scale') ?? 1.0;
+    });
+  }
+
+  Future<void> _loadFolderViewMode() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _folderViewMode = prefs.getString('folder_view_mode') ?? 'medium';
     });
   }
 
@@ -172,13 +181,27 @@ class _HomeScreenState extends State<HomeScreen> {
           );
         }
 
+        // 폴더 보기 모드에 따른 그리드 설정
+        int crossAxisCount;
+        double childAspectRatio;
+        if (_folderViewMode == 'small') {
+          crossAxisCount = 3;
+          childAspectRatio = 0.8;
+        } else if (_folderViewMode == 'detail') {
+          crossAxisCount = 1;
+          childAspectRatio = 3.0;
+        } else {
+          crossAxisCount = 2;
+          childAspectRatio = 0.85;
+        }
+
         return GridView.builder(
           padding: const EdgeInsets.all(16),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 2,
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: crossAxisCount,
             crossAxisSpacing: 16,
             mainAxisSpacing: 16,
-            childAspectRatio: 0.85,
+            childAspectRatio: childAspectRatio,
           ),
           itemCount: provider.folders.length,
           itemBuilder: (context, index) {
@@ -331,6 +354,54 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         const Divider(),
         ListTile(
+          leading: const Icon(Icons.view_module),
+          title: const Text('폴더 보기'),
+          subtitle: Text(_getFolderViewModeName()),
+          trailing: PopupMenuButton<String>(
+            icon: const Icon(Icons.arrow_drop_down),
+            onSelected: (value) async {
+              setState(() {
+                _folderViewMode = value;
+              });
+              final prefs = await SharedPreferences.getInstance();
+              await prefs.setString('folder_view_mode', value);
+            },
+            itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: 'small',
+                child: Row(
+                  children: [
+                    Icon(Icons.grid_view, size: 20),
+                    SizedBox(width: 12),
+                    Text('작은 아이콘'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'medium',
+                child: Row(
+                  children: [
+                    Icon(Icons.view_module, size: 20),
+                    SizedBox(width: 12),
+                    Text('큰 아이콘'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'detail',
+                child: Row(
+                  children: [
+                    Icon(Icons.view_list, size: 20),
+                    SizedBox(width: 12),
+                    Text('자세히'),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        const Divider(),
+        ListTile(
           leading: const Icon(Icons.storage_outlined),
           title: const Text('저장소 사용량'),
           subtitle: Text(_storageInfo),
@@ -353,6 +424,17 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ],
     );
+  }
+
+  String _getFolderViewModeName() {
+    switch (_folderViewMode) {
+      case 'small':
+        return '작은 아이콘';
+      case 'detail':
+        return '자세히';
+      default:
+        return '큰 아이콘';
+    }
   }
 
   void _showCreateFolderDialog(BuildContext context) {
