@@ -84,6 +84,52 @@ class _HomeScreenState extends State<HomeScreen> {
         elevation: 0,
         backgroundColor: Theme.of(context).colorScheme.primaryContainer,
         foregroundColor: Theme.of(context).colorScheme.onPrimaryContainer,
+        actions: [
+          if (_selectedIndex == 0) // 폴더 탭에서만 표시
+            PopupMenuButton<String>(
+              icon: Icon(_getFolderViewModeIcon()),
+              tooltip: '폴더 보기 옵션',
+              onSelected: (value) async {
+                setState(() {
+                  _folderViewMode = value;
+                });
+                final prefs = await SharedPreferences.getInstance();
+                await prefs.setString('folder_view_mode', value);
+              },
+              itemBuilder: (context) => [
+                const PopupMenuItem(
+                  value: 'small',
+                  child: Row(
+                    children: [
+                      Icon(Icons.grid_view, size: 20),
+                      SizedBox(width: 12),
+                      Text('작은 아이콘'),
+                    ],
+                  ),
+                ),
+                const PopupMenuItem(
+                  value: 'medium',
+                  child: Row(
+                    children: [
+                      Icon(Icons.view_module, size: 20),
+                      SizedBox(width: 12),
+                      Text('큰 아이콘'),
+                    ],
+                  ),
+                ),
+                const PopupMenuItem(
+                  value: 'detail',
+                  child: Row(
+                    children: [
+                      Icon(Icons.view_list, size: 20),
+                      SizedBox(width: 12),
+                      Text('자세히'),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+        ],
       ),
       body: Container(
         decoration: BoxDecoration(
@@ -209,6 +255,7 @@ class _HomeScreenState extends State<HomeScreen> {
             final folder = provider.folders[index];
             return FolderCard(
               folder: folder,
+              viewMode: _folderViewMode,
               onTap: () {
                 Navigator.push(
                   context,
@@ -361,54 +408,6 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         const Divider(),
         ListTile(
-          leading: const Icon(Icons.view_module),
-          title: const Text('폴더 보기'),
-          subtitle: Text(_getFolderViewModeName()),
-          trailing: PopupMenuButton<String>(
-            icon: const Icon(Icons.arrow_drop_down),
-            onSelected: (value) async {
-              setState(() {
-                _folderViewMode = value;
-              });
-              final prefs = await SharedPreferences.getInstance();
-              await prefs.setString('folder_view_mode', value);
-            },
-            itemBuilder: (context) => [
-              const PopupMenuItem(
-                value: 'small',
-                child: Row(
-                  children: [
-                    Icon(Icons.grid_view, size: 20),
-                    SizedBox(width: 12),
-                    Text('작은 아이콘'),
-                  ],
-                ),
-              ),
-              const PopupMenuItem(
-                value: 'medium',
-                child: Row(
-                  children: [
-                    Icon(Icons.view_module, size: 20),
-                    SizedBox(width: 12),
-                    Text('큰 아이콘'),
-                  ],
-                ),
-              ),
-              const PopupMenuItem(
-                value: 'detail',
-                child: Row(
-                  children: [
-                    Icon(Icons.view_list, size: 20),
-                    SizedBox(width: 12),
-                    Text('자세히'),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-        const Divider(),
-        ListTile(
           leading: const Icon(Icons.storage_outlined),
           title: const Text('저장소 사용량'),
           subtitle: Text(_storageInfo),
@@ -441,6 +440,17 @@ class _HomeScreenState extends State<HomeScreen> {
         return '자세히';
       default:
         return '큰 아이콘';
+    }
+  }
+
+  IconData _getFolderViewModeIcon() {
+    switch (_folderViewMode) {
+      case 'small':
+        return Icons.grid_view;
+      case 'detail':
+        return Icons.view_list;
+      default:
+        return Icons.view_module;
     }
   }
 
