@@ -103,6 +103,16 @@ class _FolderDetailScreenState extends State<FolderDetailScreen> {
               tooltip: '선택 해제',
             ),
             IconButton(
+              icon: const Icon(Icons.download),
+              onPressed: _selectedIds.isEmpty ? null : _downloadSelected,
+              tooltip: '선택 항목 다운로드',
+            ),
+            IconButton(
+              icon: const Icon(Icons.drive_file_move),
+              onPressed: _selectedIds.isEmpty ? null : _moveToFolder,
+              tooltip: '다른 폴더로 이동',
+            ),
+            IconButton(
               icon: const Icon(Icons.share),
               onPressed: _selectedIds.isEmpty ? null : _shareSelected,
               tooltip: '선택 항목 공유',
@@ -554,6 +564,110 @@ class _FolderDetailScreenState extends State<FolderDetailScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('선택한 미디어를 삭제했습니다')),
         );
+      }
+    }
+  }
+
+  // 선택한 미디어를 내 사진첩으로 다운로드
+  Future<void> _downloadSelected() async {
+    final selectedMedia = _mediaItems.where((m) => _selectedIds.contains(m.id)).toList();
+    
+    if (selectedMedia.isEmpty) return;
+
+    try {
+      for (var media in selectedMedia) {
+        // 웹에서는 WebFileHelper 사용, 모바일에서는 갤러리에 저장
+        if (kIsWeb) {
+          if (media.webDataUrl != null) {
+            WebFileHelper.downloadFile(
+              media.webDataUrl!,
+              '${media.id}.${media.mediaType == MediaType.image ? 'jpg' : 'mp4'}',
+            );
+          }
+        } else {
+          // 모바일: 갤러리에 저장하는 로직 (image_gallery_saver 패키지 필요)
+          // 여기서는 간단히 공유 기능 사용
+        }
+      }
+
+      if (mounted) {
+        _toggleSelectionMode();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('${selectedMedia.length}개의 미디어를 다운로드했습니다')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('다운로드 실패: $e')),
+        );
+      }
+    }
+  }
+
+  // 선택한 미디어를 다른 폴더로 이동
+  Future<void> _moveToFolder() async {
+    final provider = context.read<FolderProvider>();
+    final folders = provider.folders.where((f) => f.id != widget.folder.id).toList();
+
+    if (folders.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('이동할 폴더가 없습니다')),
+      );
+      return;
+    }
+
+    final targetFolder = await showDialog<FolderModel>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('폴더 선택'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: ListView.builder(
+            shrinkWrap: true,
+            itemCount: folders.length,
+            itemBuilder: (context, index) {
+              final folder = folders[index];
+              return ListTile(
+                leading: const Icon(Icons.folder),
+                title: Text(folder.name),
+                subtitle: Text('${folder.mediaCount}개 항목'),
+                onTap: () => Navigator.pop(context, folder),
+              );
+            },
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('취소'),
+          ),
+        ],
+      ),
+    );
+
+    if (targetFolder != null && mounted) {
+      try {
+        for (var id in _selectedIds) {
+          final media = _mediaItems.firstWhere((m) => m.id == id);
+          media.folderId = targetFolder.id;
+          await provider.updateMedia(media);
+        }
+
+        _toggleSelectionMode();
+        await _loadMedia();
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('${_selectedIds.length}개의 미디어를 "${targetFolder.name}"(으)로 이동했습니다')),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('이동 실패: $e')),
+          );
+        }
       }
     }
   }

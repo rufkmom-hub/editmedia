@@ -63,6 +63,42 @@ class StorageService {
   }
 
   Future<void> updateMedia(MediaItem media) async {
+    // Get old media to check if folder changed
+    final oldMediaStr = _media.get(media.id) as String?;
+    if (oldMediaStr != null) {
+      final oldMedia = MediaItem.fromJson(jsonDecode(oldMediaStr) as Map<String, dynamic>);
+      
+      // If folder changed, update both folders
+      if (oldMedia.folderId != media.folderId) {
+        final mediaPath = media.webDataUrl ?? media.filePath;
+        
+        // Update old folder
+        final oldFolder = await getFolder(oldMedia.folderId);
+        if (oldFolder != null) {
+          oldFolder.mediaCount = (oldFolder.mediaCount - 1).clamp(0, 999999);
+          
+          // If removed media was cover image, update it
+          if (oldFolder.coverImagePath == mediaPath) {
+            final remainingMedia = await getMediaInFolder(oldMedia.folderId);
+            final firstImage = remainingMedia.where((m) => m.id != media.id && m.mediaType == MediaType.image).firstOrNull;
+            oldFolder.coverImagePath = firstImage != null ? (firstImage.webDataUrl ?? firstImage.filePath) : null;
+          }
+          
+          await saveFolder(oldFolder);
+        }
+        
+        // Update new folder
+        final newFolder = await getFolder(media.folderId);
+        if (newFolder != null) {
+          newFolder.mediaCount++;
+          if (media.mediaType == MediaType.image && (newFolder.coverImagePath == null || newFolder.mediaCount == 1)) {
+            newFolder.coverImagePath = mediaPath;
+          }
+          await saveFolder(newFolder);
+        }
+      }
+    }
+    
     await _media.put(media.id, jsonEncode(media.toJson()));
   }
 
@@ -70,12 +106,21 @@ class StorageService {
     final mediaStr = _media.get(mediaId) as String?;
     if (mediaStr != null) {
       final media = MediaItem.fromJson(jsonDecode(mediaStr) as Map<String, dynamic>);
+      final mediaPath = media.webDataUrl ?? media.filePath;
       await _media.delete(mediaId);
       
-      // Update folder media count
+      // Update folder media count and cover image
       final folder = await getFolder(media.folderId);
       if (folder != null) {
         folder.mediaCount = (folder.mediaCount - 1).clamp(0, 999999);
+        
+        // If deleted media was cover image, update it
+        if (folder.coverImagePath == mediaPath) {
+          final remainingMedia = await getMediaInFolder(media.folderId);
+          final firstImage = remainingMedia.where((m) => m.mediaType == MediaType.image).firstOrNull;
+          folder.coverImagePath = firstImage != null ? (firstImage.webDataUrl ?? firstImage.filePath) : null;
+        }
+        
         await saveFolder(folder);
       }
     }

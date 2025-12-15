@@ -56,6 +56,20 @@ class FolderProvider with ChangeNotifier {
     }
   }
 
+  Future<void> updateMedia(MediaItem media) async {
+    await _storage.updateMedia(media);
+    await loadFolders();
+  }
+
+  Future<void> updateFolderName(String folderId, String newName) async {
+    final folder = await _storage.getFolder(folderId);
+    if (folder != null) {
+      folder.name = newName;
+      await _storage.saveFolder(folder);
+      await loadFolders();
+    }
+  }
+
   Future<void> deleteMedia(String mediaId) async {
     await _storage.deleteMedia(mediaId);
     await loadFolders();

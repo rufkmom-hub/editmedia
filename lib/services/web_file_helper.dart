@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
+// ignore: avoid_web_libraries_in_flutter
+import 'dart:html' show document, AnchorElement;
 
 class WebFileHelper {
   // Convert XFile to base64 data URL for web storage
@@ -63,6 +65,18 @@ class WebFileHelper {
         debugPrint('Error converting data URL to bytes: $e');
       }
       return null;
+    }
+  }
+
+  // Download file for web platform
+  static void downloadFile(String dataUrl, String fileName) {
+    if (kIsWeb) {
+      // Web download implementation using data URL
+      // ignore: avoid_web_libraries_in_flutter
+      final anchor = document.createElement('a') as AnchorElement;
+      anchor.href = dataUrl;
+      anchor.download = fileName;
+      anchor.click();
     }
   }
 }

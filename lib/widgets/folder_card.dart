@@ -9,12 +9,14 @@ class FolderCard extends StatelessWidget {
   final FolderModel folder;
   final VoidCallback onTap;
   final VoidCallback onDelete;
+  final VoidCallback? onRename;
 
   const FolderCard({
     super.key,
     required this.folder,
     required this.onTap,
     required this.onDelete,
+    this.onRename,
   });
 
   @override
@@ -46,11 +48,20 @@ class FolderCard extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
+                      if (onRename != null)
+                        IconButton(
+                          icon: const Icon(Icons.edit_outlined, size: 20),
+                          onPressed: onRename,
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          tooltip: '이름 수정',
+                        ),
                       IconButton(
                         icon: const Icon(Icons.delete_outline, size: 20),
                         onPressed: onDelete,
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints(),
+                        tooltip: '삭제',
                       ),
                     ],
                   ),

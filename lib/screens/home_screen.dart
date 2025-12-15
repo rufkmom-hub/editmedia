@@ -7,6 +7,7 @@ import '../services/storage_service.dart';
 import '../services/web_file_helper.dart';
 import '../widgets/folder_card.dart';
 import '../widgets/create_folder_dialog.dart';
+import '../widgets/rename_folder_dialog.dart';
 import '../widgets/media_grid_item.dart';
 import 'folder_detail_screen.dart';
 import 'fullscreen_media_viewer.dart';
@@ -214,6 +215,12 @@ class _HomeScreenState extends State<HomeScreen> {
                   MaterialPageRoute(
                     builder: (_) => FolderDetailScreen(folder: folder),
                   ),
+                );
+              },
+              onRename: () async {
+                await showDialog(
+                  context: context,
+                  builder: (context) => RenameFolderDialog(folder: folder),
                 );
               },
               onDelete: () async {
