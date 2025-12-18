@@ -5,12 +5,15 @@ import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:uuid/uuid.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/folder_model.dart';
 import '../models/media_item.dart';
 import '../providers/folder_provider.dart';
 import '../services/web_file_helper.dart';
 import '../services/permission_service.dart';
 import '../services/export_service.dart';
+import '../services/google_export_service.dart';
+import '../services/google_auth_service.dart';
 import '../widgets/media_grid_item.dart';
 import 'fullscreen_media_viewer.dart';
 
@@ -128,6 +131,9 @@ class _FolderDetailScreenState extends State<FolderDetailScreen> {
               tooltip: '내보내기',
               onSelected: (value) {
                 switch (value) {
+                  case 'google':
+                    _exportToGoogle();
+                    break;
                   case 'excel':
                     _exportToExcel();
                     break;
@@ -140,6 +146,16 @@ class _FolderDetailScreenState extends State<FolderDetailScreen> {
                 }
               },
               itemBuilder: (context) => [
+                const PopupMenuItem(
+                  value: 'google',
+                  child: Row(
+                    children: [
+                      Icon(Icons.cloud_upload, color: Colors.blue),
+                      SizedBox(width: 12),
+                      Text('Google Drive/Sheets로 내보내기'),
+                    ],
+                  ),
+                ),
                 const PopupMenuItem(
                   value: 'excel',
                   child: Row(
@@ -670,5 +686,184 @@ class _FolderDetailScreenState extends State<FolderDetailScreen> {
         }
       }
     }
+  }
+
+  // Google Drive/Sheets로 내보내기
+  Future<void> _exportToGoogle() async {
+    try {
+      final googleAuth = GoogleAuthService();
+      final googleExport = GoogleExportService();
+
+      // 1. Google 로그인 확인
+      if (!googleAuth.isSignedIn) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('먼저 설정에서 Google 계정에 로그인해주세요'),
+              duration: Duration(seconds: 3),
+            ),
+          );
+        }
+        return;
+      }
+
+      // 2. Drive/Sheets 설정 확인
+      final prefs = await SharedPreferences.getInstance();
+      final driveFolderId = prefs.getString('google_drive_folder_id') ?? '';
+      final spreadsheetId = prefs.getString('google_spreadsheet_id') ?? '';
+
+      if (driveFolderId.isEmpty || spreadsheetId.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('먼저 설정에서 Drive 폴더 ID와 Sheet ID를 입력해주세요'),
+              duration: Duration(seconds: 3),
+            ),
+          );
+        }
+        return;
+      }
+
+      // 3. 진행률 다이얼로그 표시
+      if (mounted) {
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => _GoogleExportProgressDialog(
+            mediaItems: _mediaItems,
+            folder: widget.folder,
+            driveFolderId: driveFolderId,
+            spreadsheetId: spreadsheetId,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Google 내보내기 실패: $e')),
+        );
+      }
+    }
+  }
+}
+
+// Google 내보내기 진행률 다이얼로그
+class _GoogleExportProgressDialog extends StatefulWidget {
+  final List<MediaItem> mediaItems;
+  final FolderModel folder;
+  final String driveFolderId;
+  final String spreadsheetId;
+
+  const _GoogleExportProgressDialog({
+    required this.mediaItems,
+    required this.folder,
+    required this.driveFolderId,
+    required this.spreadsheetId,
+  });
+
+  @override
+  State<_GoogleExportProgressDialog> createState() => _GoogleExportProgressDialogState();
+}
+
+class _GoogleExportProgressDialogState extends State<_GoogleExportProgressDialog> {
+  int _current = 0;
+  int _total = 0;
+  String _message = '준비 중...';
+  bool _isCompleted = false;
+  bool _isSuccess = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _startExport();
+  }
+
+  Future<void> _startExport() async {
+    final googleExport = GoogleExportService();
+
+    try {
+      final success = await googleExport.exportToGoogle(
+        mediaItems: widget.mediaItems,
+        folder: widget.folder,
+        driveFolderId: widget.driveFolderId,
+        spreadsheetId: widget.spreadsheetId,
+        onProgress: (current, total, message) {
+          if (mounted) {
+            setState(() {
+              _current = current;
+              _total = total;
+              _message = message;
+            });
+          }
+        },
+      );
+
+      if (mounted) {
+        setState(() {
+          _isCompleted = true;
+          _isSuccess = success;
+        });
+
+        // 2초 후 자동 닫기
+        await Future.delayed(const Duration(seconds: 2));
+        if (mounted) {
+          Navigator.pop(context);
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isCompleted = true;
+          _isSuccess = false;
+          _message = '오류: $e';
+        });
+
+        // 3초 후 자동 닫기
+        await Future.delayed(const Duration(seconds: 3));
+        if (mounted) {
+          Navigator.pop(context);
+        }
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Google로 내보내기'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (!_isCompleted) ...[
+            const CircularProgressIndicator(),
+            const SizedBox(height: 16),
+          ] else ...[
+            Icon(
+              _isSuccess ? Icons.check_circle : Icons.error,
+              color: _isSuccess ? Colors.green : Colors.red,
+              size: 48,
+            ),
+            const SizedBox(height: 16),
+          ],
+          Text(_message),
+          if (_total > 0) ...[
+            const SizedBox(height: 8),
+            LinearProgressIndicator(
+              value: _total > 0 ? _current / _total : 0,
+            ),
+            const SizedBox(height: 8),
+            Text('$_current / $_total'),
+          ],
+        ],
+      ),
+      actions: _isCompleted
+          ? [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('닫기'),
+              ),
+            ]
+          : [],
+    );
   }
 }

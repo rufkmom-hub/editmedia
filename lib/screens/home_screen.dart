@@ -5,6 +5,7 @@ import '../providers/folder_provider.dart';
 import '../models/media_item.dart';
 import '../services/storage_service.dart';
 import '../services/web_file_helper.dart';
+import '../services/google_auth_service.dart';
 import '../widgets/folder_card.dart';
 import '../widgets/create_folder_dialog.dart';
 import '../widgets/rename_folder_dialog.dart';
@@ -27,6 +28,12 @@ class _HomeScreenState extends State<HomeScreen> {
   List<MediaItem> _allMedia = [];
   double _textScale = 1.0;
   String _folderViewMode = 'medium'; // 'small', 'medium', 'detail'
+  
+  // Google 연동 관련
+  final GoogleAuthService _googleAuth = GoogleAuthService();
+  String _driveFolderId = '';
+  String _spreadsheetId = '';
+  bool _isGoogleConnected = false;
 
   @override
   void initState() {
@@ -35,6 +42,23 @@ class _HomeScreenState extends State<HomeScreen> {
     _loadAllMedia();
     _loadTextScale();
     _loadFolderViewMode();
+    _initializeGoogle();
+    _loadGoogleSettings();
+  }
+  
+  Future<void> _initializeGoogle() async {
+    await _googleAuth.initialize();
+    setState(() {
+      _isGoogleConnected = _googleAuth.isSignedIn;
+    });
+  }
+  
+  Future<void> _loadGoogleSettings() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _driveFolderId = prefs.getString('google_drive_folder_id') ?? '';
+      _spreadsheetId = prefs.getString('google_spreadsheet_id') ?? '';
+    });
   }
 
   Future<void> _loadTextScale() async {
@@ -367,6 +391,49 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildSettingsView() {
     return ListView(
       children: [
+        // Google 연동 섹션
+        ListTile(
+          leading: Icon(
+            _isGoogleConnected ? Icons.cloud_done : Icons.cloud_off,
+            color: _isGoogleConnected ? Colors.green : null,
+          ),
+          title: const Text('Google 계정 연동'),
+          subtitle: Text(_isGoogleConnected 
+              ? '연결됨: ${_googleAuth.currentUser?.email ?? ""}' 
+              : '연결되지 않음'),
+          trailing: ElevatedButton(
+            onPressed: _isGoogleConnected ? _handleGoogleSignOut : _handleGoogleSignIn,
+            child: Text(_isGoogleConnected ? '로그아웃' : '로그인'),
+          ),
+        ),
+        const Divider(),
+        
+        // Drive 폴더 ID 입력
+        ListTile(
+          leading: const Icon(Icons.folder_outlined),
+          title: const Text('Drive 폴더 ID'),
+          subtitle: _driveFolderId.isEmpty 
+              ? const Text('설정되지 않음') 
+              : Text(_driveFolderId),
+          trailing: IconButton(
+            icon: const Icon(Icons.edit),
+            onPressed: _showDriveFolderIdDialog,
+          ),
+        ),
+        
+        // Spreadsheet ID 입력
+        ListTile(
+          leading: const Icon(Icons.table_chart),
+          title: const Text('Google Sheet ID'),
+          subtitle: _spreadsheetId.isEmpty 
+              ? const Text('설정되지 않음') 
+              : Text(_spreadsheetId),
+          trailing: IconButton(
+            icon: const Icon(Icons.edit),
+            onPressed: _showSpreadsheetIdDialog,
+          ),
+        ),
+        const Divider(),
         ListTile(
           leading: const Icon(Icons.info_outline),
           title: const Text('앱 정보'),
@@ -458,6 +525,156 @@ class _HomeScreenState extends State<HomeScreen> {
     showDialog(
       context: context,
       builder: (context) => const CreateFolderDialog(),
+    );
+  }
+
+  // Google 로그인 처리
+  Future<void> _handleGoogleSignIn() async {
+    final success = await _googleAuth.signIn();
+    if (mounted) {
+      setState(() {
+        _isGoogleConnected = success;
+      });
+      
+      if (success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Google 로그인 성공')),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Google 로그인 실패')),
+        );
+      }
+    }
+  }
+
+  // Google 로그아웃 처리
+  Future<void> _handleGoogleSignOut() async {
+    await _googleAuth.signOut();
+    if (mounted) {
+      setState(() {
+        _isGoogleConnected = false;
+      });
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Google 로그아웃 완료')),
+      );
+    }
+  }
+
+  // Drive 폴더 ID 입력 다이얼로그
+  void _showDriveFolderIdDialog() {
+    final controller = TextEditingController(text: _driveFolderId);
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Drive 폴더 ID 설정'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Google Drive에서 폴더를 생성하고, 폴더 URL의 마지막 부분을 입력하세요.'),
+            const SizedBox(height: 8),
+            const Text(
+              '예: https://drive.google.com/drive/folders/1AbC123...\n→ 1AbC123...',
+              style: TextStyle(fontSize: 12, color: Colors.grey),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: controller,
+              decoration: const InputDecoration(
+                labelText: 'Drive 폴더 ID',
+                hintText: '1AbC123...',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('취소'),
+          ),
+          TextButton(
+            onPressed: () async {
+              final folderId = controller.text.trim();
+              if (folderId.isNotEmpty) {
+                final prefs = await SharedPreferences.getInstance();
+                await prefs.setString('google_drive_folder_id', folderId);
+                setState(() {
+                  _driveFolderId = folderId;
+                });
+                if (context.mounted) {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Drive 폴더 ID 저장 완료')),
+                  );
+                }
+              }
+            },
+            child: const Text('저장'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Spreadsheet ID 입력 다이얼로그
+  void _showSpreadsheetIdDialog() {
+    final controller = TextEditingController(text: _spreadsheetId);
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Google Sheet ID 설정'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Google Sheets에서 스프레드시트를 생성하고, URL의 ID 부분을 입력하세요.'),
+            const SizedBox(height: 8),
+            const Text(
+              '예: https://docs.google.com/spreadsheets/d/1AbC123.../\n→ 1AbC123...',
+              style: TextStyle(fontSize: 12, color: Colors.grey),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: controller,
+              decoration: const InputDecoration(
+                labelText: 'Google Sheet ID',
+                hintText: '1AbC123...',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('취소'),
+          ),
+          TextButton(
+            onPressed: () async {
+              final sheetId = controller.text.trim();
+              if (sheetId.isNotEmpty) {
+                final prefs = await SharedPreferences.getInstance();
+                await prefs.setString('google_spreadsheet_id', sheetId);
+                setState(() {
+                  _spreadsheetId = sheetId;
+                });
+                if (context.mounted) {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Google Sheet ID 저장 완료')),
+                  );
+                }
+              }
+            },
+            child: const Text('저장'),
+          ),
+        ],
+      ),
     );
   }
 }
