@@ -42,11 +42,13 @@ class GoogleExportService {
       final memos = <String>[];
 
       for (var media in mediaItems) {
-        // 이미지 바이트 가져오기
-        final bytes = WebFileHelper.dataUrlToBytes(media.path);
+        // 이미지 바이트 가져오기 (웹: webDataUrl, 모바일: filePath)
+        final dataUrl = media.webDataUrl ?? media.filePath;
+        final bytes = WebFileHelper.dataUrlToBytes(dataUrl);
         if (bytes != null) {
           imageBytesList.add(bytes);
-          fileNames.add(media.name);
+          // 파일명: ID를 사용 (확장자 없음)
+          fileNames.add('${media.id}.jpg');
           memos.add(media.memo ?? '');
         }
       }
